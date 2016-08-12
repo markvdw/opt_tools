@@ -11,9 +11,9 @@ class OptimisationIterationEvent(object):
         self._trigger = trigger
         self._next = next(self._seq) if self._seq is not None else np.inf
 
-    def __call__(self, logger, x, fg=None):
+    def __call__(self, logger, x, fg=None, final=False):
         if (self._trigger == "iter" and logger._i >= self._next) or (
-                        self._trigger == "time" and time.time() - logger._start_time >= self._next):
+                        self._trigger == "time" and time.time() - logger._start_time >= self._next) or final:
             self._func(x)
             self._next = next(self._seq)
 
@@ -88,10 +88,10 @@ class OptimisationLogger(object):
                                                x.copy() if self._store_x else None))),
                                      ignore_index=True)
 
-    def callback(self, x):
+    def callback(self, x, final=False):
         self._i += 1
         for event in self._events:
-            event(self, x)
+            event(self, x, final=final)
 
         if self._chaincallback is not None:
             self._chaincallback(x)
@@ -154,8 +154,8 @@ class OptimisationHelper(OptimisationLogger):
     def store_hist(self):
         self.hist.to_pickle(self._store_path)
 
-    def callback(self, x):
-        super(OptimisationHelper, self).callback(x)
+    def callback(self, x, final=False):
+        super(OptimisationHelper, self).callback(x, final)
         self._timeout_event(self, x)
 
 
