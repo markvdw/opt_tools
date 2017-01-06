@@ -6,23 +6,22 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 sys.path.append('../..')
-import opt_tools as ot
+from opt_tools.deprecated import OptimisationHelper, seq_exp_lin
 
 
 def f(x):
-    time.sleep(0.1)
+    time.sleep(0.01)
     return [opt.rosen(x), opt.rosen_der(x)]
 
 
-optlog = ot.OptimisationHelper(
-    f,
-    [
-        ot.tasks.DisplayOptimisation(ot.seq_exp_lin(1.0, 1.0)),
-        ot.tasks.LogOptimisation(ot.seq_exp_lin(1.0, 1.0), store_fullg=True, store_x=True),
-        ot.tasks.StoreOptimisationHistory('./opthist.pkl', ot.seq_exp_lin(1.0, np.inf, 5.0, 5.0), verbose=True)
-    ]
-)
-
+optlog = OptimisationHelper(f, store_x=True,
+                            disp_sequence=seq_exp_lin(1.0, 1.0),
+                            hist_sequence=seq_exp_lin(1.0, 1.0),
+                            store_sequence=seq_exp_lin(1.0, np.inf, 5.0, 5.0),
+                            store_trigger="iter",
+                            store_path='./opthist.pkl',
+                            timeout=1.0)
+# timeout=5.0)
 x0 = np.array([-5, -5])
 optlog.callback(x0)
 try:
