@@ -1,3 +1,4 @@
+import itertools
 import sys
 import time
 import numpy as np
@@ -51,7 +52,8 @@ class LogOptimisation(OptimisationIterationEvent):
                 logger.hist = pd.DataFrame(columns=['i', 't', 'f', 'gnorm', 'g', 'x'])
             else:
                 logger.hist = self._old_hist
-                # Todo: Set time and iteration
+                logger._i = logger.hist.i.max()
+                logger._start_time = time.time() - logger.hist.t.max()
 
         if len(logger.hist) > 0 and logger.hist.iloc[-1, :].i == logger._i:
             return
@@ -76,3 +78,14 @@ class StoreOptimisationHistory(OptimisationIterationEvent):
         if self._verbose:
             print("")
             print("Stored history in %.2fs" % (time.time() - st))
+
+
+class Timeout(OptimisationIterationEvent):
+    def __init__(self, threshold, trigger="time"):
+        OptimisationIterationEvent.__init__(self, itertools.cycle([threshold]), trigger)
+        self._triggered = False
+
+    def event_handler(self, logger, x):
+        if not self._triggered:
+            self._triggered = True
+            logger.finish(x)

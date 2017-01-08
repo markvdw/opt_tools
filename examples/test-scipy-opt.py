@@ -26,7 +26,7 @@ optlog = ot.OptimisationHelper(
 x0 = np.array([-5, -5])
 optlog.callback(x0)
 try:
-    xfin = opt.minimize(f, jac=True, x0=x0, method='CG', callback=optlog.callback)
+    xfin = opt.minimize(f, jac=True, x0=x0, method='CG', callback=optlog.callback, options={'gtol': 0.0})
     xfin = opt.minimize(f, jac=True, x0=xfin.x, method='CG', callback=optlog.callback)
     xfin = opt.minimize(f, jac=True, x0=xfin.x, method='CG', callback=optlog.callback)
     finx = xfin.x
