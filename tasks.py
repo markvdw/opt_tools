@@ -46,14 +46,17 @@ class LogOptimisation(OptimisationIterationEvent):
         self._store_fullg = store_fullg
         self._store_x = store_x
 
+    def _setup_logger(self, logger, init_hist):
+        if self._old_hist is None:
+            logger.hist = init_hist
+        else:
+            logger.hist = self._old_hist
+            logger._i = logger.hist.i.max()
+            logger._start_time = time.time() - logger.hist.t.max()
+
     def event_handler(self, logger, x, f=None):
         if not hasattr(logger, "hist"):
-            if self._old_hist is None:
-                logger.hist = pd.DataFrame(columns=['i', 't', 'f', 'gnorm', 'g', 'x'])
-            else:
-                logger.hist = self._old_hist
-                logger._i = logger.hist.i.max()
-                logger._start_time = time.time() - logger.hist.t.max()
+            self._setup_logger(logger, pd.DataFrame(columns=['i', 't', 'f', 'gnorm', 'g', 'x']))
 
         if len(logger.hist) > 0 and logger.hist.iloc[-1, :].i == logger._i:
             return
@@ -65,6 +68,28 @@ class LogOptimisation(OptimisationIterationEvent):
                                                    x.copy() if self._store_x else None))),
                                          ignore_index=True)
 
+
+class GPflowLogOptimisation(LogOptimisation):
+    def event_handler(self, logger, x, f=None):
+        if not hasattr(logger, "hist"):
+            self._setup_logger(
+                logger,
+                pd.DataFrame(columns=['i', 't', 'f', 'gnorm', 'g'] + list(logger.model.get_parameter_dict().keys()))
+            )
+
+        if len(logger.hist) > 0 and logger.hist.iloc[-1, :].i == logger._i:
+            return
+        if f is None:
+            f, g = logger._fg(x)
+
+        log_dict = dict(zip(
+            logger.hist.columns[:5],
+            (logger._i, time.time() - logger._start_time, f, np.linalg.norm(g), g if self._store_fullg else 0.0)
+        ))
+        log_dict.update(logger.model.get_samples_df(x[None, :].copy()).iloc[0, :].to_dict())
+
+        logger.hist = logger.hist.append(log_dict, ignore_index=True)
+        
 
 class StoreOptimisationHistory(OptimisationIterationEvent):
     def __init__(self, store_path, sequence, trigger="time", verbose=False):

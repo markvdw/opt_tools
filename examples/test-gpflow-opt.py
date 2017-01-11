@@ -21,7 +21,7 @@ optlog = ot.GPflowOptimisationHelper(
     model,
     [
         ot.tasks.DisplayOptimisation(ot.seq_exp_lin(1.0, 1.0)),
-        ot.tasks.LogOptimisation(ot.seq_exp_lin(1.0, 1.0), store_fullg=True, store_x=True),
+        ot.tasks.GPflowLogOptimisation(ot.seq_exp_lin(1.0, 1.0), store_fullg=True, store_x=True),
         ot.tasks.StoreOptimisationHistory('./opthist.pkl', ot.seq_exp_lin(1.0, np.inf, 5.0, 5.0), verbose=True)
     ]
 )
@@ -40,7 +40,7 @@ optlog = ot.GPflowOptimisationHelper(
     model,
     [
         ot.tasks.DisplayOptimisation(ot.seq_exp_lin(1.0, 1.0)),
-        ot.tasks.LogOptimisation(ot.seq_exp_lin(1.0, 1.0), store_fullg=True, store_x=True, hist=hist),
+        ot.tasks.GPflowLogOptimisation(ot.seq_exp_lin(1.0, 1.0), store_fullg=True, store_x=True, hist=hist),
         ot.tasks.StoreOptimisationHistory('./opthist.pkl', ot.seq_exp_lin(1.0, np.inf, 5.0, 5.0), verbose=True)
     ]
 )
