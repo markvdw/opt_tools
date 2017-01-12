@@ -20,6 +20,8 @@ class OptimisationIterationEvent(object):
                 final):
             self.event_handler(logger, x)
             self._next = next(self._seq)
+            while self._next < (logger._i if self._trigger == "iter" else time.time() - logger._start_time):
+                self._next = next(self._seq)
 
 
 class DisplayOptimisation(OptimisationIterationEvent):
