@@ -1,10 +1,11 @@
+import sys
+
+import GPflow
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.random as rnd
-import matplotlib.pyplot as plt
 import pandas as pd
-import GPflow
 
-import sys
 sys.path.append('../..')
 from opt_tools.deprecated import GPflowOptimisationHelper, seq_exp_lin
 

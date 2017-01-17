@@ -46,7 +46,8 @@ class GPflowOptimisationHelper(OptimisationHelper):
         return self.model._objective(x)
 
 
-def seq_exp_lin(growth, max, start=1.0, start_jump=1.0):
+def seq_exp_lin(growth, max, start=1.0, start_jump=None):
+    start_jump = start if start_jump is None else start_jump
     gap = start_jump
     last = start - start_jump
     while 1:

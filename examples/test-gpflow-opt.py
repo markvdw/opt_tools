@@ -1,11 +1,11 @@
+import sys
 import time
+
+import GPflow
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.random as rnd
-import matplotlib.pyplot as plt
 import pandas as pd
-import GPflow
-
-import sys
 
 sys.path.append('../..')
 import opt_tools as ot
@@ -36,17 +36,32 @@ print("")
 # Resume optimisation
 hist = pd.read_pickle('./opthist.pkl')
 time.sleep(3.0)
+model._wrapped_objective = model._objective
+
+
+def obj(x):
+    time.sleep(0.2)
+    return model._wrapped_objective(x)
+
+
+model._objective = obj
 optlog = ot.GPflowOptimisationHelper(
     model,
     [
         ot.tasks.DisplayOptimisation(ot.seq_exp_lin(1.0, 1.0)),
         ot.tasks.GPflowLogOptimisation(ot.seq_exp_lin(1.0, 1.0), store_fullg=True, store_x=True, hist=hist),
-        ot.tasks.StoreOptimisationHistory('./opthist.pkl', ot.seq_exp_lin(1.0, np.inf, 5.0, 5.0), verbose=True)
+        ot.tasks.StoreOptimisationHistory('./opthist.pkl', ot.seq_exp_lin(1.0, np.inf, 5.0, 5.0), verbose=True),
+        ot.tasks.Timeout(5.0)
     ]
 )
-model.optimize(callback=optlog.callback, disp=False)
-optlog.finish(model.get_free_state())
+try:
+    model.optimize(callback=optlog.callback, disp=False)
+    optlog.finish(model.get_free_state())
+except ot.OptimisationTimeout:
+    print("Optimisation timeout...")
 
+
+print("Plotting...")
 hist = pd.read_pickle('./opthist.pkl')
 
 plt.figure(figsize=(14, 5))

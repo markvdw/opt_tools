@@ -118,6 +118,10 @@ class StoreOptimisationHistory(OptimisationIterationEvent):
             print("Stored history in %.2fs" % (time.time() - st))
 
 
+class OptimisationTimeout(Exception):
+    pass
+
+
 class Timeout(OptimisationIterationEvent):
     def __init__(self, threshold, trigger="time"):
         OptimisationIterationEvent.__init__(self, itertools.cycle([threshold]), trigger)
@@ -127,3 +131,4 @@ class Timeout(OptimisationIterationEvent):
         if not self._triggered:
             self._triggered = True
             logger.finish(x)
+            raise OptimisationTimeout()
