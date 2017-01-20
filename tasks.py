@@ -11,34 +11,46 @@ class OptimisationIterationEvent(object):
         self._trigger = trigger
         self._next = next(self._seq) if self._seq is not None else np.inf
 
-    def event_handler(self, logger, x):
+    def setup(self, logger):
+        pass
+
+    def _event_handler(self, logger, x, final):
         raise NotImplementedError
 
     def __call__(self, logger, x, final=False):
         if ((self._trigger == "iter" and logger._i >= self._next) or
-                (self._trigger == "time" and time.time() - logger._start_time >= self._next) or
+                (self._trigger == "time" and logger._total_timer.elapsed_time >= self._next) or
                 final):
-            self.event_handler(logger, x)
+            self._event_handler(logger, x, final)
             self._next = next(self._seq)
-            while self._next < (logger._i if self._trigger == "iter" else time.time() - logger._start_time):
-                self._next = next(self._seq)
+            for _ in range(1000000):
+                if self._next < (logger._i if self._trigger == "iter" else logger._total_timer.elapsed_time):
+                    self._next = next(self._seq)
+                else:
+                    break
 
 
 class DisplayOptimisation(OptimisationIterationEvent):
     def __init__(self, sequence, trigger="iter"):
         OptimisationIterationEvent.__init__(self, sequence, trigger)
-        self._last_disp = (0, time.time())
-        print("Iter\tfunc\t\tgrad\t\titer/s\t\tTimestamp")
+        self._last_disp = (0, 0.0)
+        print("Starting at %s" % time.ctime())
+        print("Iter\tfunc\t\tgrad\t\titer/s\tWall iter/s\tTimestamp")
 
-    def event_handler(self, logger, x):
-        # Print and log
+    def setup(self, logger):
+        self._last_disp = (logger._i, logger._opt_timer.elapsed_time, logger._total_timer.elapsed_time)
+
+    def _event_handler(self, logger, x, final):
+        if final:
+            print("")
         f, g = logger._fg(x)
-        iter_per_time = (logger._i - self._last_disp[0]) / (time.time() - self._last_disp[1])
+        iter_per_time = (logger._i - self._last_disp[0]) / (logger._opt_timer.elapsed_time - self._last_disp[1] + 1e-6)
+        iter_per_tt = (logger._i - self._last_disp[0]) / (logger._total_timer.elapsed_time - self._last_disp[2])
         sys.stdout.write("\r")
-        sys.stdout.write(
-            "%i\t%e\t%e\t%f\t%s\t" % (logger._i, f, np.linalg.norm(g), iter_per_time, time.ctime()))
+        sys.stdout.write("%i\t%e\t%e\t%6.2f\t%6.2f\t\t%s" %
+                         (logger._i, f, np.linalg.norm(g), iter_per_time, iter_per_tt, time.ctime()))
         sys.stdout.flush()
-        self._last_disp = (logger._i, time.time())
+        self._last_disp = (logger._i, logger._opt_timer.elapsed_time, logger._total_timer.elapsed_time)
 
 
 class LogOptimisation(OptimisationIterationEvent):
@@ -50,6 +62,10 @@ class LogOptimisation(OptimisationIterationEvent):
         self._store_fullg = store_fullg
         self._store_x = store_x
 
+    def setup(self, logger):
+        assert not hasattr(logger, self.hist_name)
+        self._setup_logger(logger)
+
     def _get_hist(self, logger):
         return getattr(logger, self.hist_name)
 
@@ -57,7 +73,7 @@ class LogOptimisation(OptimisationIterationEvent):
         return setattr(logger, self.hist_name, hist)
 
     def _get_columns(self, logger):
-        return ['i', 't', 'f', 'gnorm', 'g', 'x']
+        return ['i', 't', 'tt', 'f', 'gnorm', 'g', 'x']
 
     def _setup_logger(self, logger):
         if self._old_hist is None:
@@ -66,21 +82,19 @@ class LogOptimisation(OptimisationIterationEvent):
             self._set_hist(logger, self._old_hist)
             hist = self._get_hist(logger)
             logger._i = hist.i.max()
-            logger._start_time = time.time() - hist.t.max()
+            logger._opt_timer.add_time(hist.t.max())
+            logger._total_timer.add_time(hist.tt.max())
 
     def _get_record(self, logger, x, f=None):
         if f is None:
             f, g = logger._fg(x)
         return dict(zip(
             self._get_hist(logger).columns,
-            (logger._i, time.time() - logger._start_time, f, np.linalg.norm(g), g if self._store_fullg else 0.0,
-             x.copy() if self._store_x else None)
+            (logger._i, logger._opt_timer.elapsed_time, logger._total_timer.elapsed_time, f, np.linalg.norm(g),
+             g if self._store_fullg else 0.0, x.copy() if self._store_x else None)
         ))
 
-    def event_handler(self, logger, x, f=None):
-        if not hasattr(logger, self.hist_name):
-            self._setup_logger(logger)
-
+    def _event_handler(self, logger, x, final, f=None):
         hist = self._get_hist(logger)
         if len(hist) > 0 and hist.iloc[-1, :].i == logger._i:
             return
@@ -90,14 +104,15 @@ class LogOptimisation(OptimisationIterationEvent):
 
 class GPflowLogOptimisation(LogOptimisation):
     def _get_columns(self, logger):
-        return ['i', 't', 'f', 'gnorm', 'g'] + list(logger.model.get_parameter_dict().keys())
+        return ['i', 't', 'tt', 'f', 'gnorm', 'g'] + list(logger.model.get_parameter_dict().keys())
 
     def _get_record(self, logger, x, f=None):
         if f is None:
             f, g = logger._fg(x)
         log_dict = dict(zip(
             self._get_hist(logger).columns[:5],
-            (logger._i, time.time() - logger._start_time, f, np.linalg.norm(g), g if self._store_fullg else 0.0)
+            (logger._i, logger._opt_timer.elapsed_time, logger._total_timer.elapsed_time, f, np.linalg.norm(g),
+             g if self._store_fullg else 0.0)
         ))
         if self._store_x:
             log_dict.update(logger.model.get_samples_df(x[None, :].copy()).iloc[0, :].to_dict())
@@ -110,7 +125,7 @@ class StoreOptimisationHistory(OptimisationIterationEvent):
         self._store_path = store_path
         self._verbose = verbose
 
-    def event_handler(self, logger, x):
+    def _event_handler(self, logger, x, final):
         st = time.time()
         logger.hist.to_pickle(self._store_path)
         if self._verbose:
@@ -127,7 +142,7 @@ class Timeout(OptimisationIterationEvent):
         OptimisationIterationEvent.__init__(self, itertools.cycle([threshold]), trigger)
         self._triggered = False
 
-    def event_handler(self, logger, x):
+    def _event_handler(self, logger, x, final):
         if not self._triggered:
             self._triggered = True
             logger.finish(x)

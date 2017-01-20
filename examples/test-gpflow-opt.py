@@ -7,8 +7,10 @@ import numpy as np
 import numpy.random as rnd
 import pandas as pd
 
-sys.path.append('../..')
+sys.path.append('..')
 import opt_tools as ot
+
+rnd.seed(4)
 
 X = np.linspace(0, 5, 100)[:, None]
 Y = 0.3 * np.sin(2 * X) + 0.05 * rnd.randn(*X.shape)
@@ -56,9 +58,11 @@ optlog = ot.GPflowOptimisationHelper(
 )
 try:
     model.optimize(callback=optlog.callback, disp=False)
-    optlog.finish(model.get_free_state())
 except ot.OptimisationTimeout:
     print("Optimisation timeout...")
+except KeyboardInterrupt:
+    print("Cancelled by user...")
+    optlog.finish(model.get_free_state())
 
 
 print("Plotting...")

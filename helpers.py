@@ -1,4 +1,42 @@
+import contextlib
 import time
+
+
+class Stopwatch(object):
+    def __init__(self, elapsed_time=0.0):
+        self._start_time = None
+        self._elapsed_time = elapsed_time
+
+    def start(self):
+        if self._start_time is not None:
+            raise RuntimeError("Can not start stopwatch unless it is stopped.")
+        self._start_time = time.time()
+
+    def stop(self):
+        if self._start_time is None:
+            raise RuntimeError("Can not stop stopwatch unless it is running.")
+        self._elapsed_time += time.time() - self._start_time
+        self._start_time = None
+
+    def add_time(self, time):
+        self._elapsed_time += time
+
+    @property
+    def running(self):
+        return self._start_time is not None
+
+    @property
+    def elapsed_time(self):
+        if self.running:
+            return self._elapsed_time + time.time() - self._start_time
+        else:
+            return self._elapsed_time
+
+    @contextlib.contextmanager
+    def pause(self):
+        self.stop()
+        yield
+        self.start()
 
 
 class OptimisationHelper(object):
@@ -8,7 +46,13 @@ class OptimisationHelper(object):
         self.tasks = tasks
         self._chaincallback = chaincallback
         self._i = 0
-        self._start_time = time.time()
+        self._opt_timer = Stopwatch()
+        self._opt_timer.start()
+        self._total_timer = Stopwatch()
+        self._total_timer.start()
+
+        for task in self.tasks:
+            task.setup(self)
 
     def _fg(self, x):
         """
@@ -25,22 +69,23 @@ class OptimisationHelper(object):
             return f, 0.0
 
     def callback(self, x, final=False):
-        self._i += 1
-        for task in self.tasks:
-            task(self, x, final=final)
+        with self._opt_timer.pause():
+            self._i += 1
+            for task in self.tasks:
+                task(self, x, final=final)
 
-        if self._chaincallback is not None:
-            self._chaincallback(x)
+            if self._chaincallback is not None:
+                self._chaincallback(x)
 
     def finish(self, x):
         for task in self.tasks:
-            task.event_handler(self, x)
+            task(self, x, final=True)
 
 
 class GPflowOptimisationHelper(OptimisationHelper):
     def __init__(self, model, tasks, chaincallback=None):
-        OptimisationHelper.__init__(self, None, tasks, None, chaincallback)
         self.model = model
+        OptimisationHelper.__init__(self, None, tasks, None, chaincallback)
 
     def _fg(self, x):
         return self.model._objective(x)
