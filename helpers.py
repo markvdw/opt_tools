@@ -97,6 +97,7 @@ class GPflowOptimisationHelper(OptimisationHelper):
         if self._prev_x is None or np.any(self._prev_x != x):
             self._prev_x = x.copy()
             self._prev_val = self.model._objective(x)
+            self.model.num_fevals -= 1
         return self._prev_val
 
 
