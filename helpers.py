@@ -1,6 +1,8 @@
 import contextlib
 import time
 
+import numpy as np
+
 
 class Stopwatch(object):
     def __init__(self, elapsed_time=0.0):
@@ -87,8 +89,15 @@ class GPflowOptimisationHelper(OptimisationHelper):
         self.model = model
         OptimisationHelper.__init__(self, None, tasks, None, chaincallback)
 
+        # Variables for `_fg` memoisation.
+        self._prev_x = None
+        self._prev_val = None
+
     def _fg(self, x):
-        return self.model._objective(x)
+        if self._prev_x is None or np.any(self._prev_x != x):
+            self._prev_x = x.copy()
+            self._prev_val = self.model._objective(x)
+        return self._prev_val
 
 
 def seq_exp_lin(growth, max, start=1.0, start_jump=None):
