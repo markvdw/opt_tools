@@ -87,17 +87,21 @@ class OptimisationHelper(object):
 class GPflowOptimisationHelper(OptimisationHelper):
     def __init__(self, model, tasks, chaincallback=None):
         self.model = model
-        OptimisationHelper.__init__(self, None, tasks, None, chaincallback)
+        if self.model._needs_recompile:
+            self.model._compile()
 
         # Variables for `_fg` memoisation.
         self._prev_x = None
         self._prev_val = None
 
+        super(GPflowOptimisationHelper, self).__init__(None, tasks, None, chaincallback)
+
     def _fg(self, x):
         if self._prev_x is None or np.any(self._prev_x != x):
             self._prev_x = x.copy()
+            old_fevals = self.model.num_fevals
             self._prev_val = self.model._objective(x)
-            self.model.num_fevals -= 1
+            self.model.num_fevals = old_fevals
         return self._prev_val
 
 

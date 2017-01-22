@@ -1,6 +1,7 @@
 import itertools
 import sys
 import time
+import warnings
 import numpy as np
 import pandas as pd
 
@@ -56,11 +57,21 @@ class DisplayOptimisation(OptimisationIterationEvent):
 class LogOptimisation(OptimisationIterationEvent):
     hist_name = "hist"
 
-    def __init__(self, sequence, trigger="iter", hist=None, store_fullg=False, store_x=False):
+    def __init__(self, sequence, trigger="iter", old_hist=None, store_fullg=False, store_x=False):
+        """
+        Log the optimisation history. Can also initialise the parent logger to a previously stored state by passing
+        `old_hist`. The parent logger's iteration and timers will be set.
+        :param sequence: Sequence of times when to log.
+        :param trigger: Trigger type (time | iter)
+        :param old_hist: History to initialise with (pandas DataFrame).
+        :param store_fullg: Store the full gradient vector.
+        :param store_x: Store the full parameter vector.
+        """
         OptimisationIterationEvent.__init__(self, sequence, trigger)
-        self._old_hist = hist
+        self._old_hist = old_hist
         self._store_fullg = store_fullg
         self._store_x = store_x
+        self.resume_from_hist = True
 
     def setup(self, logger):
         assert not hasattr(logger, self.hist_name)
@@ -79,11 +90,13 @@ class LogOptimisation(OptimisationIterationEvent):
         if self._old_hist is None:
             self._set_hist(logger, pd.DataFrame(columns=self._get_columns(logger)))
         else:
+
             self._set_hist(logger, self._old_hist)
-            hist = self._get_hist(logger)
-            logger._i = hist.i.max()
-            logger._opt_timer.add_time(hist.t.max())
-            logger._total_timer.add_time(hist.tt.max())
+            if self.resume_from_hist:
+                hist = self._get_hist(logger)
+                logger._i = hist.i.max()
+                logger._opt_timer.add_time(hist.t.max())
+                logger._total_timer.add_time(hist.tt.max())
 
     def _get_record(self, logger, x, f=None):
         if f is None:
@@ -103,16 +116,31 @@ class LogOptimisation(OptimisationIterationEvent):
 
 
 class GPflowLogOptimisation(LogOptimisation):
+    """
+    Log the optimisation progress of a GPflow object, and restore it from history.
+    """
+
     def _get_columns(self, logger):
-        return ['i', 't', 'tt', 'f', 'gnorm', 'g'] + list(logger.model.get_parameter_dict().keys())
+        return ['i', 'feval', 't', 'tt', 'f', 'gnorm', 'g'] + list(logger.model.get_parameter_dict().keys())
+
+    def _setup_logger(self, logger):
+        super(GPflowLogOptimisation, self)._setup_logger(logger)
+        if self._old_hist is not None and self.resume_from_hist:
+            logger.model.set_parameter_dict(self._old_hist.iloc[-1].filter(regex='model.*'))
+            f, _ = logger._fg(logger.model.get_free_state())
+            hist = self._get_hist(logger)
+            if not np.allclose(f, hist.iloc[-1].f):
+                warnings.warn(
+                    "Reloaded and stored function values don't match exactly: %f vs %f" % (f, hist.iloc[-1].f),
+                    RuntimeWarning)
 
     def _get_record(self, logger, x, f=None):
         if f is None:
             f, g = logger._fg(x)
         log_dict = dict(zip(
             self._get_hist(logger).columns[:5],
-            (logger._i, logger._opt_timer.elapsed_time, logger._total_timer.elapsed_time, f, np.linalg.norm(g),
-             g if self._store_fullg else 0.0)
+            (logger._i, logger.model.num_fevals, logger._opt_timer.elapsed_time, logger._total_timer.elapsed_time, f,
+             np.linalg.norm(g), g if self._store_fullg else 0.0)
         ))
         if self._store_x:
             log_dict.update(logger.model.get_samples_df(x[None, :].copy()).iloc[0, :].to_dict())
@@ -121,6 +149,13 @@ class GPflowLogOptimisation(LogOptimisation):
 
 class StoreOptimisationHistory(OptimisationIterationEvent):
     def __init__(self, store_path, sequence, trigger="time", verbose=False):
+        """
+        Stores the optimisation history present in the associated `logger` object.
+        :param store_path: Path to store the history.
+        :param sequence: Sequence of times when to store.
+        :param trigger: Trigger type (time | iter)
+        :param verbose: Display when history is stored.
+        """
         OptimisationIterationEvent.__init__(self, sequence, trigger)
         self._store_path = store_path
         self._verbose = verbose
@@ -138,12 +173,21 @@ class OptimisationTimeout(Exception):
 
 
 class Timeout(OptimisationIterationEvent):
+    """
+    Timeout
+    """
+
     def __init__(self, threshold, trigger="time"):
+        """
+        Triggers an OptimisationTimout exception when the total runtime exceeds the threshold.
+        :param threshold: Maximum time / iterations before raising the exception.
+        :param trigger: Chosen trigger (time | iter).
+        """
         OptimisationIterationEvent.__init__(self, itertools.cycle([threshold]), trigger)
         self._triggered = False
 
     def _event_handler(self, logger, x, final):
-        if not self._triggered:
+        if not self._triggered and not final:
             self._triggered = True
             logger.finish(x)
             raise OptimisationTimeout()
