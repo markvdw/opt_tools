@@ -1,7 +1,8 @@
+import sys
 import time
 import unittest
-
-from helpers import Stopwatch
+sys.path.append('..')
+from opt_tools.helpers import Stopwatch
 
 
 class TestStopwatch(unittest.TestCase):
