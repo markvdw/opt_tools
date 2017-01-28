@@ -74,8 +74,8 @@ class LogOptimisation(OptimisationIterationEvent):
         self.resume_from_hist = True
 
     def setup(self, logger):
-        assert not hasattr(logger, self.hist_name)
-        self._setup_logger(logger)
+        if not hasattr(logger, self.hist_name):
+            self._setup_logger(logger)
 
     def _get_hist(self, logger):
         return getattr(logger, self.hist_name)
@@ -90,7 +90,6 @@ class LogOptimisation(OptimisationIterationEvent):
         if self._old_hist is None:
             self._set_hist(logger, pd.DataFrame(columns=self._get_columns(logger)))
         else:
-
             self._set_hist(logger, self._old_hist)
             if self.resume_from_hist:
                 hist = self._get_hist(logger)
@@ -108,9 +107,19 @@ class LogOptimisation(OptimisationIterationEvent):
         ))
 
     def _event_handler(self, logger, x, final, f=None):
+        """
+        _event_handler
+        Adds the record from self._get_record to the hist object. If a record for the current iteration already exists,
+        it is replaced.
+        :param logger: Parent logger
+        :param x: Current parameter value
+        :param final: Indicator for final call
+        :param f: ...
+        :return: None
+        """
         hist = self._get_hist(logger)
         if len(hist) > 0 and hist.iloc[-1, :].i == logger._i:
-            return
+            hist = hist.iloc[:-1, :]
 
         self._set_hist(logger, hist.append(self._get_record(logger, x), ignore_index=True))
 
@@ -124,6 +133,14 @@ class GPflowLogOptimisation(LogOptimisation):
         return ['i', 'feval', 't', 'tt', 'f', 'gnorm', 'g'] + list(logger.model.get_parameter_dict().keys())
 
     def _setup_logger(self, logger):
+        """
+        _setup_logger
+        Properly resume from the history.
+         - Set the model to the last stored parameters.
+         - Check whether the function values align.
+        :param logger: Parent logger
+        :return: None
+        """
         super(GPflowLogOptimisation, self)._setup_logger(logger)
         if self._old_hist is not None and self.resume_from_hist:
             logger.model.set_parameter_dict(self._old_hist.iloc[-1].filter(regex='model.*'))
@@ -148,7 +165,7 @@ class GPflowLogOptimisation(LogOptimisation):
 
 
 class StoreOptimisationHistory(OptimisationIterationEvent):
-    def __init__(self, store_path, sequence, trigger="time", verbose=False):
+    def __init__(self, store_path, sequence, trigger="time", verbose=False, hist_name="hist"):
         """
         Stores the optimisation history present in the associated `logger` object.
         :param store_path: Path to store the history.
@@ -159,13 +176,17 @@ class StoreOptimisationHistory(OptimisationIterationEvent):
         OptimisationIterationEvent.__init__(self, sequence, trigger)
         self._store_path = store_path
         self._verbose = verbose
+        self.hist_name = hist_name
 
     def _event_handler(self, logger, x, final):
         st = time.time()
-        logger.hist.to_pickle(self._store_path)
+        getattr(logger, self.hist_name).to_pickle(self._store_path)
+        store_time = time.time() - st
         if self._verbose:
             print("")
-            print("Stored history in %.2fs" % (time.time() - st))
+            print("Stored history in %.2fs" % store_time)
+        if store_time > 10:
+            warnings.warn("Storing history is taking long (%.2fs)." % store_time)
 
 
 class OptimisationTimeout(Exception):
