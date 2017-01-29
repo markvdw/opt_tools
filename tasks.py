@@ -100,11 +100,14 @@ class LogOptimisation(OptimisationIterationEvent):
     def _get_record(self, logger, x, f=None):
         if f is None:
             f, g = logger._fg(x)
-        return dict(zip(
+        log_dict = dict(zip(
             self._get_hist(logger).columns,
             (logger._i, logger._opt_timer.elapsed_time, logger._total_timer.elapsed_time, f, np.linalg.norm(g),
              g if self._store_fullg else 0.0, x.copy() if self._store_x else None)
         ))
+        if logger._opt_options is not None:
+            log_dict.update(logger._opt_options)
+        return log_dict
 
     def _event_handler(self, logger, x, final, f=None):
         """

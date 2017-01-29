@@ -53,6 +53,8 @@ class OptimisationHelper(object):
         self._total_timer = Stopwatch()
         self._total_timer.start()
 
+        self._opt_options = None  # Stores extra options that can be read by the tasks
+
         for task in self.tasks:
             task.setup(self)
 
@@ -103,6 +105,15 @@ class GPflowOptimisationHelper(OptimisationHelper):
             self._prev_val = self.model._objective(x)
             self.model.num_fevals = old_fevals
         return self._prev_val
+
+    def optimize(self, method='L-BFGS-B', tol=None, callback=None, maxiter=1000, opt_options=None, **kwargs):
+        self._chaincallback = callback
+        self._opt_options = opt_options
+        r = self.model.optimize(method, tol, self.callback, maxiter, **kwargs)
+        if r is None:
+            raise KeyboardInterrupt
+        else:
+            return r
 
 
 def seq_exp_lin(growth, max, start=1.0, start_jump=None):
