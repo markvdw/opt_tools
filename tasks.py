@@ -164,6 +164,8 @@ class GPflowLogOptimisation(LogOptimisation):
         ))
         if self._store_x:
             log_dict.update(logger.model.get_samples_df(x[None, :].copy()).iloc[0, :].to_dict())
+        if logger._opt_options is not None:
+            log_dict.update(logger._opt_options)
         return log_dict
 
 
