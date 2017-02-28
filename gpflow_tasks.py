@@ -17,6 +17,26 @@ class GPflowBenchmarkTrackerBase(opt_tools.tasks.GPflowLogOptimisation):
         self.verbose = verbose
 
 
+class GPflowRegressionTracker(GPflowBenchmarkTrackerBase):
+    def _get_columns(self, logger):
+        return super(GPflowRegressionTracker, self)._get_columns(logger) + ['rmse', 'nlpp', 'pred_time']
+
+    def _get_record(self, logger, x, f=None):
+        st = time.time()
+        log_dict = super(GPflowRegressionTracker, self)._get_record(logger, x, f)
+        logger.model.set_state(x)
+
+        pY, pYv = logger.model.predict_y(self.test_X)
+        rmse = np.mean((pY - self.test_Y) ** 2.0) ** 0.5
+        nlpp = -np.mean(-0.5 * np.log(2 * np.pi * pYv) - 0.5 * (self.test_Y - pY) ** 2.0 / pYv)
+        log_dict.update({'rmse': rmse, 'nlpp': nlpp, 'pred_time': time.time() - st})
+
+        if self.verbose:
+            print("Benchmarks took %.2fs." % (time.time() - st))
+
+        return log_dict
+
+
 class GPflowBinClassTracker(GPflowBenchmarkTrackerBase):
     def _get_columns(self, logger):
         return super(GPflowBinClassTracker, self)._get_columns(logger) + ['acc', 'nlpp']
