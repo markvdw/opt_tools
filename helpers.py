@@ -86,6 +86,12 @@ class OptimisationHelper(object):
             task(self, x, final=True)
 
 
+class NanError(RuntimeError):
+    def __init__(self, val):
+        self.val = val
+        self.indices = np.where(np.logical_not(np.isfinite(val)))[0]
+
+
 class GPflowOptimisationHelper(OptimisationHelper):
     def __init__(self, model, tasks, chaincallback=None):
         self.model = model
@@ -99,6 +105,9 @@ class GPflowOptimisationHelper(OptimisationHelper):
         super(GPflowOptimisationHelper, self).__init__(None, tasks, None, chaincallback)
 
     def _fg(self, x):
+        if np.any(np.logical_not(np.isfinite(x))):
+            raise NanError(x)
+
         if self._prev_x is None or np.any(self._prev_x != x):
             self._prev_x = x.copy()
             old_fevals = self.model.num_fevals
