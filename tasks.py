@@ -2,6 +2,7 @@ import itertools
 import sys
 import time
 import warnings
+
 import numpy as np
 import pandas as pd
 
@@ -57,7 +58,7 @@ class DisplayOptimisation(OptimisationIterationEvent):
 class LogOptimisation(OptimisationIterationEvent):
     hist_name = "hist"
 
-    def __init__(self, sequence, trigger="iter", old_hist=None, store_fullg=False, store_x=False):
+    def __init__(self, sequence, trigger="iter", old_hist=None, store_fullg=False, store_x=None):
         """
         Log the optimisation history. Can also initialise the parent logger to a previously stored state by passing
         `old_hist`. The parent logger's iteration and timers will be set.
@@ -103,7 +104,7 @@ class LogOptimisation(OptimisationIterationEvent):
         log_dict = dict(zip(
             self._get_hist(logger).columns,
             (logger._i, logger._opt_timer.elapsed_time, logger._total_timer.elapsed_time, f, np.linalg.norm(g),
-             g if self._store_fullg else 0.0, x.copy() if self._store_x else None)
+             g if self._store_fullg else 0.0, x.copy() if self._store_x is not None else None)
         ))
         if logger._opt_options is not None:
             log_dict.update(logger._opt_options)
@@ -123,6 +124,11 @@ class LogOptimisation(OptimisationIterationEvent):
         hist = self._get_hist(logger)
         if len(hist) > 0 and hist.iloc[-1, :].i == logger._i:
             hist = hist.iloc[:-1, :]
+
+        if self._store_x == "final_only":
+            hist.iloc[:, ['model.' in c for c in hist.columns]] = np.nan
+        elif self._store_x not in [None]:
+            raise ValueError("Unknown value for store_x: %s." % str(self._store_x))
 
         self._set_hist(logger, hist.append(self._get_record(logger, x), ignore_index=True))
 
@@ -149,6 +155,7 @@ class GPflowLogOptimisation(LogOptimisation):
             logger.model.set_parameter_dict(self._old_hist.iloc[-1].filter(regex='model.*'))
             f, _ = logger._fg(logger.model.get_free_state())
             hist = self._get_hist(logger)
+
             if not np.allclose(f, hist.iloc[-1].f):
                 warnings.warn(
                     "Reloaded and stored function values don't match exactly: %f vs %f" % (f, hist.iloc[-1].f),
@@ -164,7 +171,7 @@ class GPflowLogOptimisation(LogOptimisation):
             (logger._i, logger.model.num_fevals, logger._opt_timer.elapsed_time, logger._total_timer.elapsed_time, f,
              np.linalg.norm(g), g if self._store_fullg else 0.0)
         ))
-        if self._store_x:
+        if self._store_x is not None:
             log_dict.update(logger.model.get_samples_df(x[None, :].copy()).iloc[0, :].to_dict())
         if logger._opt_options is not None:
             log_dict.update(logger._opt_options)

@@ -49,7 +49,7 @@ class GPflowBinClassTracker(GPflowBenchmarkTrackerBase):
         p, var = logger.model.predict_y(self.test_X)
         acc = ((p > 0.5).astype('float') == self.test_Y).mean()
         nlpp = np.mean(np.log(p) ** self.test_Y + np.log(1 - p) ** (1 - self.test_Y))
-        log_dict.update({'acc': acc, 'nlpp': nlpp})
+        log_dict.update({'acc': acc, 'err': 1 - acc, 'nlpp': nlpp})
 
         if self.verbose:
             print("Benchmarks took %.2fs." % (time.time() - st))
@@ -71,9 +71,9 @@ class GPflowMultiClassificationTracker(GPflowBenchmarkTrackerBase):
         assert len(p) == len(self.test_X)
         # acc = ((p > 0.5).astype('float') == self.test_Y).mean()
         acc = (np.argmax(p, 1) == self.test_Y[:, 0]).mean()
-        # nlpp = np.mean(np.log(p) ** self.test_Y + np.log(1 - p) ** (1 - self.test_Y))
-        nlpp = 0.0
-        log_dict.update({'acc': acc, 'nlpp': nlpp})
+        pcorrect = p[self.test_Y == np.arange(0, 10)[None, :]]
+        nlpp = np.mean(np.log(pcorrect))
+        log_dict.update({'acc': acc, 'err': 1 - acc, 'nlpp': nlpp})
 
         if self.verbose:
             print("Benchmarks took %.2fs." % (time.time() - st))
