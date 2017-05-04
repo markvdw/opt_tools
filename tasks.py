@@ -58,7 +58,7 @@ class DisplayOptimisation(OptimisationIterationEvent):
 class LogOptimisation(OptimisationIterationEvent):
     hist_name = "hist"
 
-    def __init__(self, sequence, trigger="iter", old_hist=None, store_fullg=False, store_x=None):
+    def __init__(self, sequence, trigger="iter", old_hist=None, store_fullg=False, store_x=None, store_x_columns=None):
         """
         Log the optimisation history. Can also initialise the parent logger to a previously stored state by passing
         `old_hist`. The parent logger's iteration and timers will be set.
@@ -72,6 +72,7 @@ class LogOptimisation(OptimisationIterationEvent):
         self._old_hist = old_hist
         self._store_fullg = store_fullg
         self._store_x = store_x
+        self._store_x_columns = store_x_columns
         self.resume_from_hist = True
 
     def setup(self, logger):
@@ -126,7 +127,10 @@ class LogOptimisation(OptimisationIterationEvent):
             hist = hist.iloc[:-1, :]
 
         if self._store_x == "final_only":
-            hist.iloc[:, ['model.' in c for c in hist.columns]] = np.nan
+            if self._store_x_columns is None:
+                hist.iloc[:, ['model.' in c for c in hist.columns]] = np.nan
+            else:
+                hist.iloc[:, [c not in self._store_x_columns and 'model.' in c for c in hist.columns]] = np.nan
         elif self._store_x not in [None]:
             raise ValueError("Unknown value for store_x: %s." % str(self._store_x))
 
