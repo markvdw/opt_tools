@@ -7,7 +7,8 @@ import pandas as pd
 import scipy.optimize as opt
 
 sys.path.append('../..')
-from opt_tools.deprecated import OptimisationHelper, seq_exp_lin
+
+from experiments.opt_tools.deprecated import OptimisationHelper, seq_exp_lin
 
 
 def f(x):

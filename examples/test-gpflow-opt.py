@@ -1,11 +1,12 @@
 import sys
 import time
 
-import GPflow
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.random as rnd
 import pandas as pd
+
+import GPflow
 
 sys.path.append('..')
 import opt_tools as ot
@@ -63,7 +64,6 @@ except ot.OptimisationTimeout:
 except KeyboardInterrupt:
     print("Cancelled by user...")
     optlog.finish(model.get_free_state())
-
 
 print("Plotting...")
 hist = pd.read_pickle('./opthist.pkl')

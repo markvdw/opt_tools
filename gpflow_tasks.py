@@ -66,8 +66,8 @@ class GPflowMultiClassificationTracker(GPflowBenchmarkTrackerBase):
         log_dict = super(GPflowMultiClassificationTracker, self)._get_record(logger, x, f)
         logger.model.set_state(x)
 
-        p = np.vstack([logger.model.predict_y(self.test_X[n * 1000:(n + 1) * 1000])[0]
-                       for n in range(-(-len(self.test_X // 1000)))])
+        p = np.vstack([logger.model.predict_y(self.test_X[n * 1000:(n + 1) * 1000, :])[0]
+                       for n in range(-(-len(self.test_X) // 1000))])
         assert len(p) == len(self.test_X)
         # acc = ((p > 0.5).astype('float') == self.test_Y).mean()
         acc = (np.argmax(p, 1) == self.test_Y[:, 0]).mean()

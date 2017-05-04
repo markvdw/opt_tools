@@ -1,12 +1,14 @@
 import sys
 
-import GPflow
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.random as rnd
 import pandas as pd
 
+import GPflow
+
 sys.path.append('../..')
+
 from opt_tools.deprecated import GPflowOptimisationHelper, seq_exp_lin
 
 X = np.linspace(0, 5, 100)[:, None]

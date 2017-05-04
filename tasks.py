@@ -154,11 +154,13 @@ class GPflowLogOptimisation(LogOptimisation):
                     "Reloaded and stored function values don't match exactly: %f vs %f" % (f, hist.iloc[-1].f),
                     RuntimeWarning)
 
+            logger.model.num_fevals = hist.iloc[-1].feval
+
     def _get_record(self, logger, x, f=None):
         if f is None:
             f, g = logger._fg(x)
         log_dict = dict(zip(
-            self._get_hist(logger).columns[:5],
+            self._get_hist(logger).columns[:7],
             (logger._i, logger.model.num_fevals, logger._opt_timer.elapsed_time, logger._total_timer.elapsed_time, f,
              np.linalg.norm(g), g if self._store_fullg else 0.0)
         ))

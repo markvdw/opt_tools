@@ -11,13 +11,12 @@ class Stopwatch(object):
 
     def start(self):
         if self._start_time is not None:
-            raise RuntimeError("Can not start stopwatch unless it is stopped.")
+            self.stop()
         self._start_time = time.time()
 
     def stop(self):
-        if self._start_time is None:
-            raise RuntimeError("Can not stop stopwatch unless it is running.")
-        self._elapsed_time += time.time() - self._start_time
+        if self._start_time is not None:
+            self._elapsed_time += time.time() - self._start_time
         self._start_time = None
 
     def add_time(self, time):
@@ -48,9 +47,9 @@ class OptimisationHelper(object):
         self.tasks = tasks
         self._chaincallback = chaincallback
         self._i = 0
-        self._opt_timer = Stopwatch()
+        self._opt_timer = Stopwatch()  # Record time spend actually optimising
         self._opt_timer.start()
-        self._total_timer = Stopwatch()
+        self._total_timer = Stopwatch()  # Record total running time
         self._total_timer.start()
 
         self._opt_options = None  # Stores extra options that can be read by the tasks
@@ -103,6 +102,8 @@ class GPflowOptimisationHelper(OptimisationHelper):
         self._prev_val = None
 
         super(GPflowOptimisationHelper, self).__init__(None, tasks, None, chaincallback)
+        self._opt_timer.stop()
+        self._total_timer.stop()
 
     def _fg(self, x):
         if np.any(np.logical_not(np.isfinite(x))):
@@ -118,7 +119,11 @@ class GPflowOptimisationHelper(OptimisationHelper):
     def optimize(self, method='L-BFGS-B', tol=None, callback=None, maxiter=1000, opt_options=None, **kwargs):
         self._chaincallback = callback
         self._opt_options = opt_options
+        self._opt_timer.start()
+        self._total_timer.start()
         r = self.model.optimize(method, tol, self.callback, maxiter, **kwargs)
+        self._opt_timer.stop()
+        self._total_timer.stop()
         if r is None:
             raise KeyboardInterrupt
         else:
