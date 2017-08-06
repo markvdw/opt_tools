@@ -131,7 +131,7 @@ class LogOptimisation(OptimisationIterationEvent):
                 hist.iloc[:, ['model.' in c for c in hist.columns]] = np.nan
             else:
                 hist.iloc[:, [c not in self._store_x_columns and 'model.' in c for c in hist.columns]] = np.nan
-        elif self._store_x not in [None]:
+        elif self._store_x not in [True, None]:
             raise ValueError("Unknown value for store_x: %s." % str(self._store_x))
 
         self._set_hist(logger, hist.append(self._get_record(logger, x), ignore_index=True))
