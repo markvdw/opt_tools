@@ -47,7 +47,7 @@ class DisplayOptimisation(OptimisationIterationEvent):
             print("")
         f, g = logger._fg(x)
         iter_per_time = (logger._i - self._last_disp[0]) / (logger._opt_timer.elapsed_time - self._last_disp[1] + 1e-6)
-        iter_per_tt = (logger._i - self._last_disp[0]) / (logger._total_timer.elapsed_time - self._last_disp[2])
+        iter_per_tt = (logger._i - self._last_disp[0]) / (logger._total_timer.elapsed_time - self._last_disp[2] + 1e-6)
         sys.stdout.write("\r")
         sys.stdout.write("%i\t%e\t%e\t%6.2f\t%6.2f\t\t%s" %
                          (logger._i, f, np.linalg.norm(g), iter_per_time, iter_per_tt, time.ctime()))
@@ -131,7 +131,7 @@ class LogOptimisation(OptimisationIterationEvent):
                 hist.iloc[:, ['model.' in c for c in hist.columns]] = np.nan
             else:
                 hist.iloc[:, [c not in self._store_x_columns and 'model.' in c for c in hist.columns]] = np.nan
-        elif self._store_x not in [None]:
+        elif self._store_x not in [True, None]:
             raise ValueError("Unknown value for store_x: %s." % str(self._store_x))
 
         self._set_hist(logger, hist.append(self._get_record(logger, x), ignore_index=True))
