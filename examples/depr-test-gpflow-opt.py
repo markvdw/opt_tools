@@ -5,7 +5,7 @@ import numpy as np
 import numpy.random as rnd
 import pandas as pd
 
-import GPflow
+import gpflow
 
 sys.path.append('../..')
 
@@ -14,7 +14,7 @@ from opt_tools.deprecated import GPflowOptimisationHelper, seq_exp_lin
 X = np.linspace(0, 5, 100)[:, None]
 Y = 0.3 * np.sin(2 * X) + 0.05 * rnd.randn(*X.shape)
 
-model = GPflow.gpr.GPR(X, Y, GPflow.kernels.RBF(1))
+model = gpflow.gpr.GPR(X, Y, gpflow.kernels.RBF(1))
 model._compile()
 
 optlog = GPflowOptimisationHelper(model, store_x=True,
