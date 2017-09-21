@@ -5,7 +5,7 @@ import unittest
 import numpy as np
 import numpy.random as rnd
 
-import GPflow
+import gpflow
 
 sys.path.append('..')
 import opt_tools as ot
@@ -16,8 +16,8 @@ class TestGPflowHelper(unittest.TestCase):
         X = np.linspace(0, 5, 100)[:, None]
         Y = 0.3 * np.sin(2 * X) + 0.05 * rnd.randn(*X.shape)
 
-        # model = GPflow.sgpr.SGPR(X, Y, GPflow.kernels.RBF(1), X[rnd.permutation(len(X))[:3], :])
-        model = GPflow.sgpr.SGPR(X, Y, GPflow.kernels.RBF(1), X[:3, :].copy())
+        # model = gpflow.sgpr.SGPR(X, Y, gpflow.kernels.RBF(1), X[rnd.permutation(len(X))[:3], :])
+        model = gpflow.sgpr.SGPR(X, Y, gpflow.kernels.RBF(1), X[:3, :].copy())
         model._compile()
 
         self.optlog = ot.GPflowOptimisationHelper(
